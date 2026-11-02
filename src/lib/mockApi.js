@@ -4,6 +4,7 @@
 
 import { customerRow } from './customerFields'
 import { productRow, validateProduct } from './productFields'
+import { expenseRow } from './expenseFields'
 import { authStorage, safe } from './supabase'
 import { DOC_PREFIX } from './format'
 
@@ -579,4 +580,64 @@ export async function getDashboardData() {
     customerCount: db.customers.length,
     productCount: db.products.length,
   })
+}
+
+// ---------- Expenses ----------
+
+export async function listExpenses({ from, to }) {
+  await delay()
+  const me = requireUser()
+  const db = load()
+  db.expenses ??= []
+  return clone(
+    db.expenses
+      .filter((e) => e.expense_date >= from && e.expense_date <= to && (me.role === 'admin' || e.created_by === me.id))
+      .sort((a, b) => b.expense_date.localeCompare(a.expense_date) || b.created_at.localeCompare(a.created_at))
+      .map((e) => ({ ...e, created_by_name: db.users.find((u) => u.id === e.created_by)?.name ?? null })),
+  )
+}
+
+export async function saveExpense(form) {
+  await delay()
+  const me = form.id ? requireAdmin() : requireUser()
+  const db = load()
+  db.expenses ??= []
+  let rec = db.expenses.find((e) => e.id === form.id)
+  if (rec) Object.assign(rec, expenseRow(form))
+  else {
+    rec = { id: uid(), ...expenseRow(form), created_by: me.id, created_at: new Date().toISOString() }
+    db.expenses.push(rec)
+  }
+  save()
+  return clone({ ...rec, created_by_name: db.users.find((u) => u.id === rec.created_by)?.name ?? null })
+}
+
+export async function deleteExpense(id) {
+  await delay()
+  requireAdmin()
+  const db = load()
+  db.expenses = (db.expenses ?? []).filter((e) => e.id !== id)
+  save()
+}
+
+// ---------- Document template ----------
+
+export async function saveDocumentStyle(companyId, { doc_template, doc_accent }) {
+  await delay()
+  requireAdmin()
+  const co = load().companies.find((c) => c.id === companyId)
+  if (!co) throw new Error('Company not found.')
+  Object.assign(co, { doc_template, doc_accent })
+  save()
+  return clone(co)
+}
+
+export async function saveCompanyLogo(companyId, logo) {
+  await delay()
+  requireAdmin()
+  const co = load().companies.find((c) => c.id === companyId)
+  if (!co) throw new Error('Company not found.')
+  co.logo = logo
+  save()
+  return clone(co)
 }

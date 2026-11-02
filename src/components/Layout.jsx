@@ -3,6 +3,7 @@ import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import {
   FileText,
   LayoutDashboard,
+  LayoutTemplate,
   LogOut,
   Menu,
   Package,
@@ -10,6 +11,7 @@ import {
   Settings as SettingsIcon,
   ShieldCheck,
   Users,
+  Wallet,
   X,
 } from 'lucide-react'
 import { useAuth } from '../auth/AuthProvider'
@@ -24,6 +26,7 @@ const NAV = [
       { to: '/invoices', label: 'Invoices', icon: ReceiptText },
     ],
   },
+  { section: 'Finance', links: [{ to: '/expenses', label: 'Expenses', icon: Wallet }] },
   {
     section: 'Manage',
     links: [
@@ -35,6 +38,7 @@ const NAV = [
     section: 'Administration',
     links: [
       { to: '/users', label: 'Users', icon: ShieldCheck, adminOnly: true },
+      { to: '/templates', label: 'Templates', icon: LayoutTemplate, adminOnly: true },
       { to: '/settings', label: 'Settings', icon: SettingsIcon, adminOnly: true },
     ],
   },

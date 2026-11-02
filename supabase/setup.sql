@@ -586,6 +586,77 @@ create unique index if not exists products_sku_unique
   on public.products (lower(trim(sku)))
   where sku is not null and trim(sku) <> '';
 
+-- =============================================================
+-- 006: daily bills & expenses
+-- Admins see/edit/delete everything; cashiers add and see their own.
+-- Run in: Supabase > SQL Editor
+-- =============================================================
+
+create table if not exists public.expenses (
+  id              uuid primary key default gen_random_uuid(),
+  expense_date    date not null default current_date,
+  category        text not null,
+  reason          text not null check (length(trim(reason)) > 0),
+  amount          numeric(12,2) not null check (amount > 0),
+  paid_to         text,
+  payment_method  text not null default 'Cash',
+  reference       text,
+  created_by      uuid default auth.uid() references public.profiles(id) on delete set null,
+  created_at      timestamptz not null default now()
+);
+
+create index if not exists expenses_date_idx on public.expenses (expense_date desc);
+
+alter table public.expenses enable row level security;
+
+drop policy if exists "read: admins all, others own" on public.expenses;
+create policy "read: admins all, others own" on public.expenses
+  for select to authenticated
+  using (public.is_admin() or (public.is_active_user() and created_by = auth.uid()));
+
+drop policy if exists "active users add own" on public.expenses;
+create policy "active users add own" on public.expenses
+  for insert to authenticated
+  with check (public.is_active_user() and created_by = auth.uid());
+
+drop policy if exists "admins update" on public.expenses;
+create policy "admins update" on public.expenses
+  for update to authenticated using (public.is_admin()) with check (public.is_admin());
+
+drop policy if exists "admins delete" on public.expenses;
+create policy "admins delete" on public.expenses
+  for delete to authenticated using (public.is_admin());
+
+-- =============================================================
+-- 007: invoice / quotation template + accent colour (per company)
+-- Run in: Supabase > SQL Editor
+-- =============================================================
+
+alter table public.companies
+  add column if not exists doc_template text not null default 'classic'
+    check (doc_template in ('classic', 'modern', 'minimal', 'corporate')),
+  add column if not exists doc_accent text not null default '#1c5cab'
+    check (doc_accent ~ '^#[0-9a-fA-F]{6}$');
+
+-- =============================================================
+-- 008: company logo (small image stored as a data URL)
+-- Run in: Supabase > SQL Editor
+-- =============================================================
+
+alter table public.companies
+  add column if not exists logo text
+    check (logo is null or (logo like 'data:image/%' and length(logo) < 1500000));
+
+-- =============================================================
+-- 009: allow the Executive and Elegant templates
+-- Run in: Supabase > SQL Editor
+-- =============================================================
+
+alter table public.companies drop constraint if exists companies_doc_template_check;
+alter table public.companies
+  add constraint companies_doc_template_check
+  check (doc_template in ('classic', 'modern', 'minimal', 'corporate', 'executive', 'elegant'));
+
 -- ---------- Sample data (skipped if a company already exists) ----------
 do $seed$ begin if not exists (select 1 from public.companies) then
 

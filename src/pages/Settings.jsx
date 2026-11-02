@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
-import { CheckCircle2, LogOut, RotateCcw } from 'lucide-react'
-import { getDefaultCompany, saveCompany } from '../lib/api'
+import { useEffect, useRef, useState } from 'react'
+import { CheckCircle2, ImageUp, LogOut, RotateCcw, Trash2 } from 'lucide-react'
+import { getDefaultCompany, saveCompany, saveCompanyLogo } from '../lib/api'
+import { fileToLogo } from '../lib/image'
 import { resetDemoData } from '../lib/mockApi'
 import { USE_MOCK } from '../lib/supabase'
 import { initials } from '../lib/format'
@@ -96,6 +97,9 @@ export default function Settings() {
           )}
         </form>
 
+        <div className="settings-side">
+          {form?.id && <LogoCard company={form} onChange={(co) => setForm((f) => ({ ...f, logo: co.logo }))} />}
+
         <div className="card">
           <div className="card-head card-head-tight">
             <div>
@@ -115,6 +119,7 @@ export default function Settings() {
               <LogOut size={16} /> Sign out
             </button>
           </div>
+        </div>
         </div>
 
         {USE_MOCK && (
@@ -141,5 +146,60 @@ export default function Settings() {
         )}
       </div>
     </>
+  )
+}
+
+function LogoCard({ company, onChange }) {
+  const inputRef = useRef(null)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+
+  async function run(fn) {
+    setBusy(true)
+    setError('')
+    try {
+      onChange(await fn())
+    } catch (e) {
+      setError(e.message)
+    }
+    setBusy(false)
+  }
+
+  const upload = (file) => file && run(async () => saveCompanyLogo(company.id, await fileToLogo(file)))
+  const remove = () => window.confirm('Remove the logo from invoices and quotations?') && run(() => saveCompanyLogo(company.id, null))
+
+  return (
+    <div className="card">
+      <div className="card-head card-head-tight">
+        <div>
+          <h3>Company logo</h3>
+          <p className="text-secondary">Printed on every invoice and quotation. A transparent PNG looks best.</p>
+        </div>
+      </div>
+      <ErrorBanner message={error} />
+      <div className={`logo-box ${company.logo ? '' : 'logo-box-empty'}`} onClick={() => !company.logo && inputRef.current?.click()}>
+        {company.logo ? <img src={company.logo} alt="Company logo" /> : <span className="text-muted">No logo yet. Click to upload.</span>}
+      </div>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/png,image/jpeg,image/webp"
+        hidden
+        onChange={(e) => {
+          upload(e.target.files[0])
+          e.target.value = ''
+        }}
+      />
+      <div className="card-actions">
+        {company.logo && (
+          <button className="btn btn-danger-ghost mr-auto" onClick={remove} disabled={busy}>
+            <Trash2 size={15} /> Remove
+          </button>
+        )}
+        <button className="btn btn-secondary" onClick={() => inputRef.current?.click()} disabled={busy}>
+          <ImageUp size={16} /> {busy ? 'Uploading…' : company.logo ? 'Change logo' : 'Upload logo'}
+        </button>
+      </div>
+    </div>
   )
 }

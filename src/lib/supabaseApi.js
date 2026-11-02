@@ -1,6 +1,7 @@
 import { supabase } from './supabase'
 import { customerRow } from './customerFields'
 import { productRow } from './productFields'
+import { expenseRow } from './expenseFields'
 
 function unwrap({ data, error }) {
   if (error) {
@@ -197,3 +198,43 @@ export const createUser = (user) => adminUsers({ action: 'create', ...user })
 export const updateUser = (id, changes) => adminUsers({ action: 'update', id, ...changes })
 export const setUserPassword = (id, password) => adminUsers({ action: 'password', id, password })
 export const deleteUser = (id) => adminUsers({ action: 'delete', id })
+
+// ---------- Expenses ----------
+// Admins see everyone's; cashiers only their own (enforced by RLS).
+
+export async function listExpenses({ from, to }) {
+  const rows = unwrap(
+    await supabase
+      .from('expenses')
+      .select('*, creator:profiles(name)')
+      .gte('expense_date', from)
+      .lte('expense_date', to)
+      .order('expense_date', { ascending: false })
+      .order('created_at', { ascending: false }),
+  )
+  return rows.map((r) => ({ ...r, created_by_name: r.creator?.name ?? null }))
+}
+
+export async function saveExpense(form) {
+  const row = expenseRow(form)
+  const q = form.id
+    ? supabase.from('expenses').update(row).eq('id', form.id)
+    : supabase.from('expenses').insert(row)
+  const saved = unwrap(await q.select('*, creator:profiles(name)').single())
+  return { ...saved, created_by_name: saved.creator?.name ?? null }
+}
+
+export async function deleteExpense(id) {
+  return unwrap(await supabase.from('expenses').delete().eq('id', id))
+}
+
+// ---------- Document template (Templates page) ----------
+
+export async function saveDocumentStyle(companyId, { doc_template, doc_accent }) {
+  return unwrap(await supabase.from('companies').update({ doc_template, doc_accent }).eq('id', companyId).select().single())
+}
+
+// Logo is stored as a small data URL on the company (null removes it)
+export async function saveCompanyLogo(companyId, logo) {
+  return unwrap(await supabase.from('companies').update({ logo }).eq('id', companyId).select().single())
+}

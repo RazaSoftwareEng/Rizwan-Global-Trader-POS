@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { Trash2 } from 'lucide-react'
-import { deleteCustomer, deleteProduct, saveCustomer, saveProduct } from '../lib/api'
+import { deleteCustomer, deleteExpense, deleteProduct, saveCustomer, saveExpense, saveProduct } from '../lib/api'
 import { CUSTOMER_FIELDS, EMPTY_CUSTOMER } from '../lib/customerFields'
 import { EMPTY_PRODUCT, PRODUCT_FIELDS, validateProduct } from '../lib/productFields'
+import { EXPENSE_FIELDS, emptyExpense, validateExpense } from '../lib/expenseFields'
 import { ErrorBanner, Field, Modal } from './ui'
 
 const filled = (v) => String(v ?? '').trim() !== ''
@@ -147,6 +148,24 @@ export function ProductModal({ product, existing = [], ...props }) {
       validate={(f) => validateProduct(f, existing)}
       save={saveProduct}
       remove={deleteProduct}
+      {...props}
+    />
+  )
+}
+
+export function ExpenseModal({ expense, canDelete, ...props }) {
+  return (
+    <RecordModal
+      title="expense"
+      initial={
+        expense
+          ? { ...expense, amount: String(expense.amount), paid_to: expense.paid_to ?? '', reference: expense.reference ?? '' }
+          : emptyExpense()
+      }
+      fields={EXPENSE_FIELDS}
+      validate={validateExpense}
+      save={saveExpense}
+      remove={canDelete ? deleteExpense : undefined}
       {...props}
     />
   )

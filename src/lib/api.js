@@ -25,4 +25,9 @@ export const {
   updateUser,
   setUserPassword,
   deleteUser,
+  listExpenses,
+  saveExpense,
+  deleteExpense,
+  saveDocumentStyle,
+  saveCompanyLogo,
 } = USE_MOCK ? mock : real

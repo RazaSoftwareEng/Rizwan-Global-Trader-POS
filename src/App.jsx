@@ -9,6 +9,8 @@ import DocumentDetail from './pages/DocumentDetail'
 import Catalog from './pages/Catalog'
 import Customers from './pages/Customers'
 import Users from './pages/Users'
+import Expenses from './pages/Expenses'
+import Templates from './pages/Templates'
 import Settings from './pages/Settings'
 
 const adminOnly = (el) => <RequireAuth adminOnly>{el}</RequireAuth>
@@ -33,8 +35,10 @@ export default function App() {
         <Route path="quotations/new" element={<DocumentForm key="quotation" type="quotation" />} />
         <Route path="quotations/:id" element={<DocumentDetail key="quotation" type="quotation" />} />
         <Route path="customers" element={<Customers />} />
+        <Route path="expenses" element={<Expenses />} />
         <Route path="catalog" element={adminOnly(<Catalog />)} />
         <Route path="users" element={adminOnly(<Users />)} />
+        <Route path="templates" element={adminOnly(<Templates />)} />
         <Route path="settings" element={adminOnly(<Settings />)} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
