@@ -1068,3 +1068,31 @@ h3 { font-size: 14px; }
 @media (max-width: 1280px) { .rk-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 @media (max-width: 1000px) { .rp-row { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 560px) { .rk-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* Logo preview: keep the image inside its box at any width */
+.logo-box { display: flex; align-items: center; justify-content: center; height: auto; min-height: 150px; overflow: hidden; }
+.logo-box img { display: block; width: auto; height: auto; max-width: 100%; max-height: 150px; }
+.settings > *, .settings-side > * { min-width: 0; }
+@media (max-width: 1280px) { .settings { grid-template-columns: minmax(0, 1fr); } .settings-side { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px; align-items: start; } }
+.card-head.card-head-tight { padding: 0 0 14px; }
+@media (max-width: 640px) {
+  .hide-sm { display: none; }
+  .row-actions { flex-wrap: wrap; }
+  .table th, .table td { padding-left: 12px; padding-right: 12px; }
+}
+/* Users: each user becomes a small card on phones */
+@media (max-width: 640px) {
+  .users-table thead { display: none; }
+  .users-table, .users-table tbody { display: block; }
+  .users-table tr { display: grid; grid-template-columns: auto auto 1fr; align-items: center; gap: 10px; padding: 14px; border-bottom: 1px solid var(--border); }
+  .users-table tr:last-child { border-bottom: 0; }
+  .users-table td { padding: 0; border: 0; }
+  .users-table td:first-child { grid-column: 1 / -1; }
+  .users-table td:last-child { grid-column: 3; justify-self: end; }
+  .users-table .row-actions { flex-wrap: nowrap; }
+}
+@media (max-width: 640px) {
+  .users-table tr { grid-template-columns: auto 1fr; }
+  .users-table td:last-child { grid-column: 1 / -1; justify-self: stretch; }
+  .users-table .row-actions { justify-content: flex-start; gap: 6px; padding-top: 6px; border-top: 1px dashed var(--border); }
+}

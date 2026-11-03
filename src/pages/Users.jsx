@@ -68,13 +68,13 @@ export default function Users() {
       <div className="card card-flush">
         {!rows && !error && <Loading />}
         {rows && (
-          <table className="table">
+          <table className="table users-table">
             <thead>
               <tr>
                 <th>User</th>
                 <th>Role</th>
                 <th>Status</th>
-                <th>Added</th>
+                <th className="hide-sm">Added</th>
                 <th className="num">Actions</th>
               </tr>
             </thead>
@@ -104,7 +104,7 @@ export default function Users() {
                     <td>
                       <StatusBadge status={u.active ? 'active' : 'inactive'} />
                     </td>
-                    <td className="text-secondary">{formatDate(u.created_at?.slice(0, 10))}</td>
+                    <td className="text-secondary hide-sm">{formatDate(u.created_at?.slice(0, 10))}</td>
                     <td>
                       <div className="row-actions">
                         <button className="icon-btn" title="Edit" disabled={busy} onClick={() => setModal({ kind: 'edit', user: u })}>
