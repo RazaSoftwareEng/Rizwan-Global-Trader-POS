@@ -1,5 +1,6 @@
-// Invoice / quotation designs and accent colours (chosen on the Templates page,
-// stored on the company so every user prints the same design).
+// Invoice / quotation designs and accent colours.
+// Each customer gets one template (one customer per template); the company's
+// template is the fallback for customers without one. Accent is company-wide.
 
 export const TEMPLATES = [
   { id: 'classic', name: 'Classic', text: 'Clean header with a strong rule. Timeless and easy to read.' },
@@ -8,6 +9,10 @@ export const TEMPLATES = [
   { id: 'corporate', name: 'Corporate', text: 'Boxed details, bordered table, amount in words, signatures.' },
   { id: 'executive', name: 'Executive', text: 'Full-height colour sidebar with company and client details.' },
   { id: 'elegant', name: 'Elegant', text: 'Centred letterhead, summary strip with amount due, signature.' },
+  { id: 'bold', name: 'Bold', text: 'Large title with a dark total-due panel.' },
+  { id: 'ledger', name: 'Ledger', text: 'Bill-book style sales tax invoice with full grid lines.' },
+  { id: 'compact', name: 'Compact', text: 'Dense layout that fits many items on one page.' },
+  { id: 'premium', name: 'Premium', text: 'Dark header and footer with an accent bar.' },
 ]
 
 export const ACCENTS = [

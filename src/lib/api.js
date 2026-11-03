@@ -30,4 +30,5 @@ export const {
   deleteExpense,
   saveDocumentStyle,
   saveCompanyLogo,
+  listCustomerDocuments,
 } = USE_MOCK ? mock : real

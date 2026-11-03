@@ -6,6 +6,7 @@ import { GST_PERCENT, addDays, computeTotals, initials, money, today } from '../
 import { EmptyState, ErrorBanner, Field, Loading } from '../components/ui'
 import { CustomerModal, ProductModal } from '../components/RecordModals'
 import { useAuth } from '../auth/AuthProvider'
+import { productsFor } from '../lib/productFields'
 
 const STEPS = ['Customer', 'Products', 'Details']
 
@@ -159,7 +160,7 @@ export default function DocumentForm({ type }) {
                 )}
               </div>
 
-              <ProductPicker products={products} items={items} onAdd={addProduct} />
+              <ProductPicker products={productsFor(products, customer.id)} items={items} onAdd={addProduct} />
 
               {items.length > 0 && (
                 <div className="lines">
@@ -354,6 +355,7 @@ export default function DocumentForm({ type }) {
 
       {modal === 'customer' && (
         <CustomerModal
+          customers={customers}
           onClose={() => setModal(null)}
           onSaved={(c) => {
             setCustomers((prev) => [...prev, c].sort((a, b) => a.name.localeCompare(b.name)))
@@ -366,6 +368,7 @@ export default function DocumentForm({ type }) {
       {modal === 'product' && (
         <ProductModal
           existing={products}
+          customerId={customer?.id}
           onClose={() => setModal(null)}
           onSaved={(p) => {
             setProducts((prev) => [...prev, p].sort((a, b) => a.name.localeCompare(b.name)))

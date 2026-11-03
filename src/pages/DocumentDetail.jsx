@@ -97,7 +97,7 @@ export default function DocumentDetail({ type }) {
         <ErrorBanner message={error} />
       </div>
 
-      <DocumentPaper type={type} doc={doc} template={co.doc_template} accent={co.doc_accent} />
+      <DocumentPaper type={type} doc={doc} template={doc.customers?.doc_template || co.doc_template} accent={co.doc_accent} />
     </>
   )
 }

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Package, Plus, Search, Upload } from 'lucide-react'
-import { listProducts } from '../lib/api'
+import { listCustomers, listProducts } from '../lib/api'
 import { money } from '../lib/format'
 import { EmptyState, ErrorBanner, Loading, PageHeader } from '../components/ui'
 import { ProductModal } from '../components/RecordModals'
@@ -15,17 +15,26 @@ export default function Catalog() {
   const [editing, setEditing] = useState(null) // null | {} (new) | product
   const [importing, setImporting] = useState(false)
   const [notice, setNotice] = useState('')
+  const [customers, setCustomers] = useState([])
+  const [owner, setOwner] = useState('all') // 'all' | 'shared' | customer id
 
   useEffect(() => {
     listProducts().then(setRows).catch((e) => setError(e.message))
+    listCustomers().then(setCustomers).catch(() => {})
   }, [])
+
+  const customerName = (id) => customers.find((c) => c.id === id)?.name ?? 'Unknown customer'
+  // New products / imports go into the catalog picked in the filter
+  const targetId = owner === 'all' || owner === 'shared' ? null : owner
 
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase()
     return (rows ?? []).filter(
-      (p) => !needle || [p.name, p.sku, p.description, p.unit].some((v) => v?.toLowerCase().includes(needle)),
+      (p) =>
+        (owner === 'all' || (owner === 'shared' ? !p.customer_id : p.customer_id === owner)) &&
+        (!needle || [p.name, p.sku, p.description, p.unit].some((v) => v?.toLowerCase().includes(needle))),
     )
-  }, [rows, q])
+  }, [rows, q, owner])
 
   const upsert = (p) => setRows((prev) => [...prev.filter((r) => r.id !== p.id), p].sort(byName))
 
@@ -33,7 +42,7 @@ export default function Catalog() {
     <>
       <PageHeader
         title="Catalog"
-        subtitle="Products, prices and stock used on quotations and invoices."
+        subtitle="Each customer has their own catalog. Shared products are available to every customer."
         actions={
           <>
             <button className="btn btn-secondary" onClick={() => setImporting(true)} disabled={!rows}>
@@ -53,9 +62,18 @@ export default function Catalog() {
         <div className="toolbar">
           <div className="input-icon toolbar-search">
             <Search size={16} />
-            <input className="input" placeholder="Search by name, SKU or description" value={q} onChange={(e) => setQ(e.target.value)} />
+            <input className="input" placeholder="Search products" value={q} onChange={(e) => setQ(e.target.value)} />
           </div>
-          {rows && <span className="text-secondary">{rows.length} products</span>}
+          <select className="input filter-select" value={owner} onChange={(e) => setOwner(e.target.value)}>
+            <option value="all">All catalogs</option>
+            <option value="shared">Shared — all customers</option>
+            {customers.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+          {rows && <span className="text-secondary">{filtered.length} product{filtered.length === 1 ? '' : 's'}</span>}
         </div>
 
         {!rows && !error && <Loading />}
@@ -83,7 +101,7 @@ export default function Catalog() {
             <thead>
               <tr>
                 <th>Product</th>
-                <th>SKU</th>
+                <th>Customer</th>
                 <th>Unit</th>
                 <th className="num">Stock</th>
                 <th className="num">Price</th>
@@ -99,11 +117,10 @@ export default function Catalog() {
                       </span>
                       <div className="cell-stack">
                         <span className="strong">{p.name}</span>
-                        {p.description && <span className="text-muted truncate">{p.description}</span>}
                       </div>
                     </div>
                   </td>
-                  <td className="text-secondary mono">{p.sku || '—'}</td>
+                  <td>{p.customer_id ? <span className="cat-pill">{customerName(p.customer_id)}</span> : <span className="text-muted">Shared</span>}</td>
                   <td className="text-secondary">{p.unit}</td>
                   <td className="num">
                     {Number(p.stock) > 0 ? (
@@ -124,6 +141,8 @@ export default function Catalog() {
         <ProductModal
           product={editing.id ? editing : null}
           existing={rows}
+          customers={customers}
+          customerId={targetId}
           onClose={() => setEditing(null)}
           onSaved={(p) => {
             upsert(p)
@@ -139,6 +158,8 @@ export default function Catalog() {
       {importing && (
         <ProductImport
           existing={rows}
+          customerId={targetId}
+          customerName={targetId ? customerName(targetId) : 'Shared — all customers'}
           onClose={() => setImporting(false)}
           onImported={(added) => {
             setRows((prev) => [...prev, ...added].sort(byName))

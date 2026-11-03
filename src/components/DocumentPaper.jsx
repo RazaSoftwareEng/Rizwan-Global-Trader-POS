@@ -43,6 +43,9 @@ function metaRows(type, doc, withNumber) {
     ['Date', formatDate(doc.date)],
     doc.valid_until && ['Valid until', formatDate(doc.valid_until)],
     type === 'invoice' && ['Status', doc.status === 'paid' ? 'Paid' : 'Unpaid'],
+    type === 'invoice' && doc.status !== 'paid' && doc.due_date && ['Due date', formatDate(doc.due_date)],
+    type === 'invoice' && doc.status === 'paid' && doc.payment_method && ['Paid by', doc.payment_method],
+    type === 'invoice' && doc.status === 'paid' && doc.payment_ref && ['Reference', doc.payment_ref],
   ].filter(Boolean)
 }
 
@@ -387,7 +390,217 @@ function Elegant({ type, doc, co, cu, label }) {
   )
 }
 
-const LAYOUTS = { classic: Classic, modern: Modern, minimal: Minimal, corporate: Corporate, executive: Executive, elegant: Elegant }
+function Bold({ type, doc, co, cu, label }) {
+  return (
+    <>
+      <header className="d-head">
+        <div className="d-brand">
+          <Logo co={co} height={56} />
+          <div>
+            <h2 className="d-company">{co.name}</h2>
+            <div className="d-muted">
+              <CompanyLines co={co} />
+            </div>
+          </div>
+        </div>
+      </header>
+      <section className="d-hero">
+        <div>
+          <div className="d-kind">{label}</div>
+          <div className="d-no">{doc.no}</div>
+        </div>
+        <div className="d-hero-total">
+          <div className="d-label">{type === 'invoice' ? 'Total due' : 'Quoted total'}</div>
+          <div className="d-hero-amount">{money(doc.total)}</div>
+        </div>
+      </section>
+      <section className="d-cols">
+        <div className="d-muted">
+          <div className="d-label">Bill to</div>
+          <CustomerLines cu={cu} />
+        </div>
+        <div>
+          <div className="d-label">Details</div>
+          <MetaList rows={metaRows(type, doc)} />
+        </div>
+      </section>
+      <ItemsTable items={doc.items} />
+      <section className="d-bottom">
+        <Notes notes={doc.notes} />
+        <Totals doc={doc} />
+      </section>
+      <footer className="d-foot">Thank you for your business.</footer>
+    </>
+  )
+}
+
+function Ledger({ type, doc, co, cu, label }) {
+  const third =
+    type === 'invoice'
+      ? ['Status', doc.status === 'paid' ? 'Paid' : 'Unpaid']
+      : ['Valid until', doc.valid_until ? formatDate(doc.valid_until) : '—']
+  return (
+    <>
+      <header className="d-ledger-head">
+        <div className="d-brand">
+          <Logo co={co} height={60} />
+          <div>
+            <h2 className="d-company">{co.name}</h2>
+            <div className="d-muted">
+              <CompanyLines co={co} />
+            </div>
+          </div>
+        </div>
+        <div className="d-ledger-kind">{type === 'invoice' ? 'Sales Tax Invoice' : 'Quotation'}</div>
+      </header>
+      <table className="d-grid-info">
+        <tbody>
+          <tr>
+            <th>Customer</th>
+            <td className="d-strong">{cu.name}</td>
+            <th>{label} no.</th>
+            <td className="d-strong">{doc.no}</td>
+          </tr>
+          <tr>
+            <th>Attn</th>
+            <td>{cu.contact_person || '—'}</td>
+            <th>Date</th>
+            <td>{formatDate(doc.date)}</td>
+          </tr>
+          <tr>
+            <th>Address</th>
+            <td>{join([cu.address, cu.city], ', ') || '—'}</td>
+            <th>{third[0]}</th>
+            <td>{third[1]}</td>
+          </tr>
+          <tr>
+            <th>NTN / STRN</th>
+            <td>{join([cu.ntn, cu.strn], ' / ') || '—'}</td>
+            <th>Phone</th>
+            <td>{cu.phone || '—'}</td>
+          </tr>
+        </tbody>
+      </table>
+      <ItemsTable items={doc.items} />
+      <section className="d-bottom">
+        <div>
+          <div className="d-words">
+            <div className="d-label">Amount in words</div>
+            <div className="d-words-text">{amountInWords(doc.total)}</div>
+          </div>
+          <Notes notes={doc.notes} />
+        </div>
+        <Totals doc={doc} />
+      </section>
+      <section className="d-ledger-sign">
+        <div>Prepared by{doc.created_by_name ? `: ${doc.created_by_name}` : ''}</div>
+        <div>Checked by</div>
+        <div>Receiver’s signature &amp; stamp</div>
+      </section>
+      <footer className="d-ledger-foot">E.&amp;O.E. · This is a computer-generated document.</footer>
+    </>
+  )
+}
+
+function Compact({ type, doc, co, cu, label }) {
+  return (
+    <>
+      <header className="d-head">
+        <div className="d-brand">
+          <Logo co={co} height={44} />
+          <div>
+            <h2 className="d-company">{co.name}</h2>
+            <div className="d-muted">
+              {join([co.address, co.phone, co.email, co.ntn && `NTN ${co.ntn}`, co.strn && `STRN ${co.strn}`])}
+            </div>
+          </div>
+        </div>
+        <div className="d-title">
+          <div className="d-kind">{label}</div>
+          <div className="d-no">{doc.no}</div>
+        </div>
+      </header>
+      <section className="d-info-bar">
+        <div>
+          <div className="d-label">Bill to</div>
+          <div className="d-party-name">{cu.name}</div>
+          <div className="d-muted">{join([cu.contact_person, cu.phone])}</div>
+          <div className="d-muted">{join([cu.address, cu.city], ', ')}</div>
+        </div>
+        {metaRows(type, doc).map(([k, v]) => (
+          <div key={k}>
+            <div className="d-label">{k}</div>
+            <div className="d-strong">{v}</div>
+          </div>
+        ))}
+      </section>
+      <ItemsTable items={doc.items} />
+      <section className="d-bottom">
+        <Notes notes={doc.notes} />
+        <Totals doc={doc} />
+      </section>
+    </>
+  )
+}
+
+function Premium({ type, doc, co, cu, label }) {
+  return (
+    <>
+      <header className="d-dark">
+        <div className="d-brand">
+          <div className="d-logo-frame">
+            <Logo co={co} height={56} />
+          </div>
+          <div>
+            <h2 className="d-company">{co.name}</h2>
+            <div className="d-dark-lines">
+              <CompanyLines co={co} />
+            </div>
+          </div>
+        </div>
+        <div className="d-title">
+          <div className="d-kind">{label}</div>
+          <div className="d-no">{doc.no}</div>
+        </div>
+      </header>
+      <div className="d-accent-bar" />
+      <div className="d-body">
+        <section className="d-meta">
+          <div className="d-muted">
+            <div className="d-label">Bill to</div>
+            <CustomerLines cu={cu} />
+          </div>
+          <MetaList rows={metaRows(type, doc)} />
+        </section>
+        <ItemsTable items={doc.items} />
+        <section className="d-bottom">
+          <div>
+            <div className="d-words">
+              <div className="d-label">Amount in words</div>
+              <div className="d-words-text">{amountInWords(doc.total)}</div>
+            </div>
+            <Notes notes={doc.notes} />
+          </div>
+          <Totals doc={doc} />
+        </section>
+      </div>
+      <footer className="d-dark-foot">{join([co.phone, co.email, 'Thank you for your business'])}</footer>
+    </>
+  )
+}
+
+const LAYOUTS = {
+  classic: Classic,
+  modern: Modern,
+  minimal: Minimal,
+  corporate: Corporate,
+  executive: Executive,
+  elegant: Elegant,
+  bold: Bold,
+  ledger: Ledger,
+  compact: Compact,
+  premium: Premium,
+}
 
 // fixed = render at A4 width (for scaled thumbnails)
 export default function DocumentPaper({ type, doc, template, accent, fixed = false }) {

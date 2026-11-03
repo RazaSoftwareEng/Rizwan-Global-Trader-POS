@@ -5,10 +5,11 @@
 import { customerRow } from './customerFields'
 import { productRow, validateProduct } from './productFields'
 import { expenseRow } from './expenseFields'
+import { TEMPLATES } from './templates'
 import { authStorage, safe } from './supabase'
 import { DOC_PREFIX } from './format'
 
-const DB_KEY = 'rgt-mock-db-v6'
+const DB_KEY = 'rgt-mock-db-v7'
 const SESSION_KEY = 'rgt-mock-session'
 const delay = (ms = 180) => new Promise((r) => setTimeout(r, ms))
 const uid = () => (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`)
@@ -72,8 +73,8 @@ function seed() {
     ['Hamza & Sons', 'Hamza Tariq', '+92 306 6666666', 'hamza@example.com', 'Near Clock Tower', 'Faisalabad', '5678901-5', '03-03-3333-003-33'],
     ['Iqbal General Store', 'Muhammad Iqbal', '+92 307 7777777', null, 'Main Bazaar, Cantt', 'Rawalpindi', null, null],
     ['Kashif Distributors', 'Kashif Nawaz', '+92 308 8888888', 'kashif@example.com', 'Hussain Agahi Road', 'Multan', '6789012-6', '03-04-4444-004-44'],
-  ].map(([name, contact_person, phone, email, address, city, ntn, strn]) => ({
-    id: uid(), name, contact_person, phone, email, address, city, ntn, strn, created_at: now,
+  ].map(([name, contact_person, phone, email, address, city, ntn, strn], i) => ({
+    id: uid(), name, contact_person, phone, email, address, city, ntn, strn, doc_template: TEMPLATES[i].id, created_at: now,
   }))
 
   const products = [
@@ -382,7 +383,11 @@ export async function saveCustomer(form) {
   await delay()
   if (form.id) requireAdmin()
   else requireUser()
-  return upsert(load().customers, form.id, customerRow(form))
+  const db = load()
+  if (form.doc_template && db.customers.some((c) => c.id !== form.id && c.doc_template === form.doc_template)) {
+    throw new Error('This invoice template is already used by another customer.')
+  }
+  return upsert(db.customers, form.id, customerRow(form))
 }
 
 export async function deleteCustomer(id) {
@@ -391,6 +396,9 @@ export async function deleteCustomer(id) {
   const db = load()
   if (db.invoices.some((r) => r.customer_id === id) || db.quotations.some((r) => r.customer_id === id)) {
     throw new Error('This record is used in invoices or quotations, so it cannot be deleted.')
+  }
+  if (db.products.some((p) => p.customer_id === id)) {
+    throw new Error('This record is linked to invoices, quotations or products, so it cannot be deleted.')
   }
   db.customers = db.customers.filter((c) => c.id !== id)
   save()
@@ -472,7 +480,7 @@ export async function getDocument(type, id) {
 }
 
 // Same validation and math as the create_invoice / create_quotation SQL functions
-export async function createDocument(type, { companyId, customerId, items, date, validUntil, discount, taxPercent, notes }) {
+export async function createDocument(type, { companyId, customerId, items, date, validUntil, discount, taxPercent, notes, payment }) {
   await delay(350)
   const me = requireUser()
   const t = DOC_TYPES[type]
@@ -513,7 +521,15 @@ export async function createDocument(type, { companyId, customerId, items, date,
     created_by: me.id,
     created_at: new Date().toISOString(),
     ...(type === 'invoice'
-      ? { status: 'unpaid', quotation_id: null }
+      ? {
+          status: payment?.status === 'paid' ? 'paid' : 'unpaid',
+          quotation_id: null,
+          due_date: payment?.status === 'unpaid' ? payment.dueDate || null : null,
+          payment_method: payment?.status === 'paid' ? payment.method : null,
+          payment_ref: payment?.status === 'paid' && payment.method !== 'Cash' ? payment.reference || null : null,
+          payment_details: payment?.status === 'paid' && payment.method !== 'Cash' ? payment.details || null : null,
+          paid_at: payment?.status === 'paid' ? new Date().toISOString() : null,
+        }
       : { status: 'open', valid_until: validUntil || null, invoice_id: null }),
   })
   db[t.items].push(...lines.map((l) => ({ ...l, [t.fk]: id })))
@@ -576,7 +592,7 @@ export async function getDashboardData() {
   return clone({
     invoices: [...db.invoices].sort(byCreatedDesc).map((r) => decorate(db, r)),
     items: db.invoice_items.map(({ product_name, qty, line_total }) => ({ product_name, qty, line_total })),
-    quotations: db.quotations.map(({ id, total, status, created_by }) => ({ id, total, status, created_by })),
+    quotations: db.quotations.map(({ id, total, status, created_by, customer_id, quotation_date }) => ({ id, total, status, created_by, customer_id, quotation_date })),
     customerCount: db.customers.length,
     productCount: db.products.length,
   })
@@ -640,4 +656,23 @@ export async function saveCompanyLogo(companyId, logo) {
   co.logo = logo
   save()
   return clone(co)
+}
+
+export async function listCustomerDocuments(type, customerId) {
+  await delay()
+  requireUser()
+  const t = DOC_TYPES[type]
+  const db = load()
+  return clone(
+    db[t.table]
+      .filter((r) => r.customer_id === customerId)
+      .sort(byCreatedDesc)
+      .map((r) => ({
+        ...decorate(db, r),
+        customers: db.customers.find((c) => c.id === r.customer_id),
+        items: db[t.items].filter((i) => i[t.fk] === r.id).sort((a, b) => a.sort_order - b.sort_order),
+        no: r[t.no],
+        date: r[t.date],
+      })),
+  )
 }

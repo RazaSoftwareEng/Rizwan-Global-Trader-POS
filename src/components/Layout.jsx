@@ -1,13 +1,12 @@
 import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import {
-  FileText,
   LayoutDashboard,
   LayoutTemplate,
   LogOut,
   Menu,
   Package,
-  ReceiptText,
+  BarChart3,
   Settings as SettingsIcon,
   ShieldCheck,
   Users,
@@ -20,13 +19,12 @@ import { ROLE_LABELS, initials } from '../lib/format'
 const NAV = [
   { section: 'Overview', links: [{ to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true }] },
   {
-    section: 'Sales',
+    section: 'Finance',
     links: [
-      { to: '/quotations', label: 'Quotations', icon: FileText },
-      { to: '/invoices', label: 'Invoices', icon: ReceiptText },
+      { to: '/expenses', label: 'Expenses', icon: Wallet },
+      { to: '/reports', label: 'Reports', icon: BarChart3, adminOnly: true },
     ],
   },
-  { section: 'Finance', links: [{ to: '/expenses', label: 'Expenses', icon: Wallet }] },
   {
     section: 'Manage',
     links: [
@@ -49,12 +47,14 @@ export default function Layout() {
   const nav = NAV.map((g) => ({ ...g, links: g.links.filter((l) => isAdmin || !l.adminOnly) })).filter((g) => g.links.length)
   const [open, setOpen] = useState(false)
   const location = useLocation()
+  // Customer workspace gets the full width; the sidebar opens from the ☰ button
+  const focus = /^\/customers\/[^/]+$/.test(location.pathname)
 
   // Close the mobile drawer after navigating
   useEffect(() => setOpen(false), [location.pathname])
 
   return (
-    <div className="shell">
+    <div className={`shell ${focus ? 'shell-focus' : ''}`}>
       <aside className={`sidebar no-print ${open ? 'open' : ''}`}>
         <div className="sidebar-brand">
           <div className="logo-mark">RG</div>

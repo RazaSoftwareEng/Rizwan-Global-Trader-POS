@@ -8,6 +8,8 @@ export const CUSTOMER_FIELDS = [
   { key: 'ntn', label: 'NTN', placeholder: '1234567-8' },
   { key: 'strn', label: 'STRN', placeholder: 'Sales tax registration no.' },
   { key: 'address', label: 'Address', required: true, textarea: true, full: true },
+  // Rendered by TemplatePicker (see CustomerModal); one customer per template
+  { key: 'doc_template', label: 'Invoice template', required: true, full: true },
 ]
 
 const clean = (v) => (typeof v === 'string' ? v.trim() : v) || null

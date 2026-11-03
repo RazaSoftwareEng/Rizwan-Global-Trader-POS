@@ -4,6 +4,7 @@ import { listCustomers } from '../lib/api'
 import { initials } from '../lib/format'
 import { EmptyState, ErrorBanner, Loading, PageHeader } from '../components/ui'
 import { CustomerModal } from '../components/RecordModals'
+import { TEMPLATES } from '../lib/templates'
 import { useAuth } from '../auth/AuthProvider'
 
 export default function Customers() {
@@ -79,6 +80,7 @@ export default function Customers() {
                 <th>Phone</th>
                 <th>City</th>
                 <th>NTN</th>
+                <th>Invoice template</th>
               </tr>
             </thead>
             <tbody>
@@ -97,6 +99,13 @@ export default function Customers() {
                   <td className="text-secondary">{c.phone || '—'}</td>
                   <td className="text-secondary">{c.city || '—'}</td>
                   <td className="text-secondary mono">{c.ntn || '—'}</td>
+                  <td>
+                    {c.doc_template ? (
+                      <span className="cat-pill">{TEMPLATES.find((t) => t.id === c.doc_template)?.name ?? c.doc_template}</span>
+                    ) : (
+                      <span className="text-muted">Not set</span>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -107,6 +116,7 @@ export default function Customers() {
       {editing && (
         <CustomerModal
           customer={editing.id ? editing : null}
+          customers={rows ?? []}
           onClose={() => setEditing(null)}
           onSaved={(c) => {
             upsert(c)

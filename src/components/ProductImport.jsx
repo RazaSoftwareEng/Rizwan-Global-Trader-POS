@@ -15,7 +15,7 @@ function downloadTemplate() {
   URL.revokeObjectURL(url)
 }
 
-export default function ProductImport({ existing, onClose, onImported }) {
+export default function ProductImport({ existing, customerId = null, customerName, onClose, onImported }) {
   const inputRef = useRef(null)
   const [fileName, setFileName] = useState('')
   const [rows, setRows] = useState(null)
@@ -35,7 +35,7 @@ export default function ProductImport({ existing, onClose, onImported }) {
       return
     }
     setFileName(file.name)
-    const result = readImport(await file.text(), existing)
+    const result = readImport(await file.text(), existing, customerId)
     if (result.error) setError(result.error)
     else if (!result.rows.length) setError('No product rows found under the header.')
     else setRows(result.rows)
@@ -73,6 +73,11 @@ export default function ProductImport({ existing, onClose, onImported }) {
       }
     >
       <ErrorBanner message={error} />
+      {customerName && (
+        <p className="import-target">
+          Products will be added to: <b>{customerName}</b>. Change the catalog filter on the Catalog page to import for another customer.
+        </p>
+      )}
 
       <div
         className={`dropzone ${dragging ? 'dragging' : ''}`}
@@ -103,7 +108,7 @@ export default function ProductImport({ existing, onClose, onImported }) {
         </div>
         <div className="strong">{fileName || 'Drop a CSV file here, or click to choose'}</div>
         <div className="text-muted">
-          Columns: <b>name</b>, <b>price</b> (required) · sku, unit, stock, description (optional)
+          Columns: <b>name</b>, <b>price</b> (required) · unit, stock (optional)
         </div>
       </div>
 
@@ -125,7 +130,6 @@ export default function ProductImport({ existing, onClose, onImported }) {
                 <tr>
                   <th>Row</th>
                   <th>Name</th>
-                  <th>SKU</th>
                   <th>Unit</th>
                   <th className="num">Price</th>
                   <th className="num">Stock</th>
@@ -137,7 +141,6 @@ export default function ProductImport({ existing, onClose, onImported }) {
                   <tr key={r.line} className={r.errors.length ? 'row-error' : ''}>
                     <td className="text-muted">{r.line}</td>
                     <td className="strong">{r.form.name || '—'}</td>
-                    <td className="mono">{r.form.sku || '—'}</td>
                     <td>{r.form.unit}</td>
                     <td className="num">{r.form.price === '' ? '—' : money(String(r.form.price).replace(/,/g, ''))}</td>
                     <td className="num">{r.form.stock || 0}</td>

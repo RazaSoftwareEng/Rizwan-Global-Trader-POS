@@ -1,56 +1,19 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Check, CheckCircle2 } from 'lucide-react'
-import { getDefaultCompany, saveDocumentStyle } from '../lib/api'
+import { getDefaultCompany, listCustomers, saveDocumentStyle } from '../lib/api'
 import { ACCENTS, DEFAULT_ACCENT, DEFAULT_TEMPLATE, TEMPLATES } from '../lib/templates'
-import { GST_PERCENT, addDays, today } from '../lib/format'
+import { sampleDoc } from '../lib/sampleDoc'
 import { useAuth } from '../auth/AuthProvider'
 import { ErrorBanner, Loading, PageHeader } from '../components/ui'
 import DocumentPaper from '../components/DocumentPaper'
 import ScaledPaper from '../components/ScaledPaper'
 
-const round2 = (n) => Math.round(n * 100) / 100
 const HEX = /^#[0-9a-f]{6}$/i
-
-// Example document for previews, using the real company details
-function sampleDoc(type, company, preparedBy) {
-  const items = [
-    ['Basmati Rice 5kg', 'bag', 20, 2450],
-    ['Cooking Oil 5L', 'can', 10, 2950],
-    ['Sugar 1kg', 'kg', 50, 155],
-    ['Tea 950g', 'pack', 12, 1650],
-  ].map(([product_name, unit, qty, unit_price], i) => ({ id: i, product_name, unit, qty, unit_price, line_total: qty * unit_price }))
-  const subtotal = items.reduce((s, i) => s + i.line_total, 0)
-  const discount = 1000
-  const tax_amount = round2(((subtotal - discount) * GST_PERCENT) / 100)
-  const month = today().slice(2, 4) + today().slice(5, 7)
-  return {
-    companies: company,
-    customers: {
-      name: 'Ahmed Traders',
-      contact_person: 'Ahmed Raza',
-      address: 'Shop 12, Anarkali Bazaar',
-      city: 'Lahore',
-      phone: '+92 301 1111111',
-      ntn: '1234567-1',
-    },
-    items,
-    no: type === 'invoice' ? `RGT-INV-${month}-0001` : `RGT-QT-${month}-0001`,
-    date: today(),
-    valid_until: type === 'quotation' ? addDays(15) : null,
-    status: type === 'invoice' ? 'unpaid' : 'open',
-    subtotal,
-    discount,
-    tax_percent: GST_PERCENT,
-    tax_amount,
-    total: round2(subtotal - discount + tax_amount),
-    notes: 'Payment due within 15 days. Goods once sold will not be taken back.',
-    created_by_name: preparedBy,
-  }
-}
 
 export default function Templates() {
   const { user } = useAuth()
   const [company, setCompany] = useState(null)
+  const [customers, setCustomers] = useState([])
   const [template, setTemplate] = useState(DEFAULT_TEMPLATE)
   const [accent, setAccent] = useState(DEFAULT_ACCENT)
   const [hexDraft, setHexDraft] = useState(DEFAULT_ACCENT)
@@ -69,7 +32,11 @@ export default function Templates() {
         setHexDraft(co.doc_accent || DEFAULT_ACCENT)
       })
       .catch((e) => setError(e.message))
+    listCustomers().then(setCustomers).catch(() => {})
   }, [])
+
+  const usedBy = Object.fromEntries(customers.filter((c) => c.doc_template).map((c) => [c.doc_template, c.name]))
+  const usedCount = Object.keys(usedBy).length
 
   const sample = useMemo(() => (company ? sampleDoc(kind, company, user?.name) : null), [kind, company, user?.name])
 
@@ -100,7 +67,7 @@ export default function Templates() {
     <>
       <PageHeader
         title="Templates"
-        subtitle="Choose how invoices and quotations look. The selected design is used for everyone."
+        subtitle={`Each customer has their own template (${usedCount} of ${TEMPLATES.length} assigned). Set it when adding or editing a customer. Here you choose the colour and the default for customers without one.`}
         actions={
           <>
             {saved && (
@@ -121,7 +88,7 @@ export default function Templates() {
               </button>
             )}
             <button className="btn btn-primary" onClick={handleSave} disabled={!dirty || busy}>
-              <Check size={16} /> {busy ? 'Saving…' : 'Use this template'}
+              <Check size={16} /> {busy ? 'Saving…' : 'Save colour & default'}
             </button>
           </>
         }
@@ -148,9 +115,11 @@ export default function Templates() {
                     </ScaledPaper>
                     <span className="tpl-card-name">
                       {t.name}
-                      {current.template === t.id && <Check size={14} strokeWidth={3} className="tpl-in-use" aria-label="In use" />}
+                      {current.template === t.id && <span className="tag">Default</span>}
                     </span>
-                    <span className="tpl-card-text">{t.text}</span>
+                    <span className={`tpl-card-owner ${usedBy[t.id] ? 'is-taken' : ''}`}>
+                      {usedBy[t.id] ? `Used by ${usedBy[t.id]}` : 'Available'}
+                    </span>
                   </button>
                 ))}
               </div>

@@ -9,11 +9,9 @@ export const UNITS = [
 
 export const PRODUCT_FIELDS = [
   { key: 'name', label: 'Product name', required: true, autoFocus: true, full: true },
-  { key: 'sku', label: 'SKU / Code', placeholder: 'e.g. RICE-5' },
-  { key: 'unit', label: 'Unit', required: true, options: UNITS },
   { key: 'price', label: 'Price (Rs)', type: 'number', required: true },
+  { key: 'unit', label: 'Unit', required: true, options: UNITS, searchable: true },
   { key: 'stock', label: 'Stock', type: 'number', placeholder: '0' },
-  { key: 'description', label: 'Description', textarea: true, full: true, placeholder: 'Size, brand, packing… (optional)' },
 ]
 
 export const EMPTY_PRODUCT = { name: '', sku: '', unit: 'pcs', price: '', stock: '0', description: '' }
@@ -31,6 +29,7 @@ export const productRow = (f) => ({
   price: toNumber(f.price) || 0,
   stock: toNumber(f.stock) || 0,
   description: String(f.description ?? '').trim() || null,
+  customer_id: f.customer_id || null, // null = shared by all customers
 })
 
 // Returns an error message, or '' when the product is valid
@@ -42,7 +41,9 @@ export function validateProduct(f, existing = []) {
 
   const name = normKey(f.name)
   const sku = normKey(f.sku)
-  const others = existing.filter((p) => p.id !== f.id)
+  // Names / SKUs only have to be unique within the same customer's catalog
+  const owner = f.customer_id || null
+  const others = existing.filter((p) => p.id !== f.id && (p.customer_id || null) === owner)
   if (name && others.some((p) => normKey(p.name) === name)) return `A product named "${f.name.trim()}" already exists.`
   if (sku && others.some((p) => normKey(p.sku) === sku)) return `SKU "${f.sku.trim()}" is already used by another product.`
   return ''
@@ -101,16 +102,16 @@ function matchUnit(raw) {
 }
 
 const TEMPLATE_ROWS = [
-  ['name', 'sku', 'unit', 'price', 'stock', 'description'],
-  ['Basmati Rice 5kg', 'RICE-5', 'bag', '2450', '100', 'Premium long grain'],
-  ['Cooking Oil 5L', 'OIL-5', 'can', '2950', '40', ''],
+  ['name', 'unit', 'price', 'stock'],
+  ['Basmati Rice 5kg', 'bag', '2450', '100'],
+  ['Cooking Oil 5L', 'can', '2950', '40'],
 ]
 
 const csvCell = (v) => (/[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v)
 export const TEMPLATE_CSV = TEMPLATE_ROWS.map((r) => r.map(csvCell).join(',')).join('\r\n')
 
 // Turns CSV text into rows with per-row errors, checked against the catalog and the file itself
-export function readImport(text, existing) {
+export function readImport(text, existing, customerId = null) {
   const [header, ...body] = parseCSV(text)
   if (!header) return { error: 'The file is empty.' }
 
@@ -128,7 +129,7 @@ export function readImport(text, existing) {
     const get = (f) => (cols[f] === undefined ? '' : String(cells[cols[f]] ?? '').trim())
     const unitRaw = get('unit')
     const unit = unitRaw ? matchUnit(unitRaw) : 'pcs'
-    const form = { name: get('name'), sku: get('sku'), unit: unit ?? unitRaw, price: get('price'), stock: get('stock'), description: get('description') }
+    const form = { customer_id: customerId, name: get('name'), sku: get('sku'), unit: unit ?? unitRaw, price: get('price'), stock: get('stock'), description: get('description') }
 
     const errors = []
     if (!form.name) errors.push('Name is missing')
@@ -148,3 +149,6 @@ export function readImport(text, existing) {
   })
   return { rows }
 }
+
+// Products a customer can be billed for: their own plus shared ones
+export const productsFor = (products, customerId) => products.filter((p) => !p.customer_id || p.customer_id === customerId)

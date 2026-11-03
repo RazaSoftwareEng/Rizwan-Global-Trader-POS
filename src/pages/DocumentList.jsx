@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { FileText, Plus, ReceiptText, Search } from 'lucide-react'
 import { DOC_TYPES, listDocuments } from '../lib/api'
 import { formatDate, money } from '../lib/format'
@@ -25,7 +25,8 @@ export default function DocumentList({ type }) {
   const { isAdmin } = useAuth()
   const [rows, setRows] = useState(null)
   const [error, setError] = useState('')
-  const [q, setQ] = useState('')
+  const [searchParams] = useSearchParams()
+  const [q, setQ] = useState(searchParams.get('q') ?? '')
   const [status, setStatus] = useState('all')
 
   useEffect(() => {

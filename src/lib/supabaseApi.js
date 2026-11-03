@@ -5,12 +5,17 @@ import { expenseRow } from './expenseFields'
 
 function unwrap({ data, error }) {
   if (error) {
+    // Column missing = a Supabase SQL update from the supabase/ folder hasn't been run yet
+    if (error.code === 'PGRST204' || error.code === 'PGRST202' || error.code === '42703') {
+      throw new Error(`The database needs an update (${error.message}). Run the latest SQL file from the supabase folder in Supabase > SQL Editor.`)
+    }
     if (error.code === '23505') {
       if (/sku/i.test(error.message)) throw new Error('This SKU is already used by another product.')
       if (/products_name/i.test(error.message)) throw new Error('A product with this name already exists.')
+      if (/doc_template/i.test(error.message)) throw new Error('This invoice template is already used by another customer.')
       throw new Error('This record already exists.')
     }
-    if (error.code === '23503') throw new Error('This record is used in invoices or quotations, so it cannot be deleted.')
+    if (error.code === '23503') throw new Error('This record is linked to invoices, quotations or products, so it cannot be deleted.')
     throw new Error(error.message)
   }
   return data
@@ -105,7 +110,7 @@ export async function listDocuments(type) {
   const rows = unwrap(
     await supabase
       .from(t.table)
-      .select(`id, ${t.no}, ${t.date}, total, status, created_by, customers(name), creator:profiles(name)`)
+      .select(`id, ${t.no}, ${t.date}, total, status, created_by, customer_id, customers(name), creator:profiles(name)`)
       .order('created_at', { ascending: false }),
   )
   return rows.map((r) => ({ ...r, no: r[t.no], date: r[t.date], created_by_name: r.creator?.name ?? null }))
@@ -125,7 +130,7 @@ export async function getDocument(type, id) {
 }
 
 // Returns the new document id.
-export async function createDocument(type, { companyId, customerId, items, date, validUntil, discount, taxPercent, notes }) {
+export async function createDocument(type, { companyId, customerId, items, date, validUntil, discount, taxPercent, notes, payment }) {
   const common = {
     p_company_id: companyId,
     p_customer_id: customerId,
@@ -135,7 +140,17 @@ export async function createDocument(type, { companyId, customerId, items, date,
     p_notes: notes || null,
   }
   if (type === 'invoice') {
-    return unwrap(await supabase.rpc('create_invoice', { ...common, p_invoice_date: date }))
+    // payment: { status: 'paid' | 'unpaid', dueDate, method, reference, details } (optional)
+    const pay = payment
+      ? {
+          p_status: payment.status,
+          p_due_date: payment.status === 'unpaid' ? payment.dueDate || null : null,
+          p_payment_method: payment.status === 'paid' ? payment.method : null,
+          p_payment_ref: payment.status === 'paid' && payment.method !== 'Cash' ? payment.reference || null : null,
+          p_payment_details: payment.status === 'paid' && payment.method !== 'Cash' ? payment.details || null : null,
+        }
+      : {}
+    return unwrap(await supabase.rpc('create_invoice', { ...common, p_invoice_date: date, ...pay }))
   }
   return unwrap(
     await supabase.rpc('create_quotation', { ...common, p_quotation_date: date, p_valid_until: validUntil || null }),
@@ -156,9 +171,9 @@ export async function convertQuotation(id) {
 
 export async function getDashboardData() {
   const [invoices, items, quotations, customers, products] = await Promise.all([
-    supabase.from('invoices').select('id, invoice_no, invoice_date, total, status, customer_id, created_by, created_at, customers(name), creator:profiles(name)').order('created_at', { ascending: false }),
+    supabase.from('invoices').select('id, invoice_no, invoice_date, subtotal, discount, tax_amount, total, status, customer_id, created_by, created_at, customers(name), creator:profiles(name)').order('created_at', { ascending: false }),
     supabase.from('invoice_items').select('product_name, qty, line_total'),
-    supabase.from('quotations').select('id, total, status, created_by'),
+    supabase.from('quotations').select('id, total, status, created_by, customer_id, quotation_date'),
     supabase.from('customers').select('id', { count: 'exact', head: true }),
     supabase.from('products').select('id', { count: 'exact', head: true }),
   ])
@@ -237,4 +252,18 @@ export async function saveDocumentStyle(companyId, { doc_template, doc_accent })
 // Logo is stored as a small data URL on the company (null removes it)
 export async function saveCompanyLogo(companyId, logo) {
   return unwrap(await supabase.from('companies').update({ logo }).eq('id', companyId).select().single())
+}
+
+// One customer's invoices or quotations, with items, newest first (company is added by the page)
+export async function listCustomerDocuments(type, customerId) {
+  const t = DOC_TYPES[type]
+  const rows = unwrap(
+    await supabase
+      .from(t.table)
+      .select(`*, customers(*), ${t.items}(*), creator:profiles(name)`)
+      .eq('customer_id', customerId)
+      .order('created_at', { ascending: false })
+      .order('sort_order', { referencedTable: t.items }),
+  )
+  return rows.map((d) => ({ ...d, no: d[t.no], date: d[t.date], items: d[t.items], created_by_name: d.creator?.name ?? null }))
 }

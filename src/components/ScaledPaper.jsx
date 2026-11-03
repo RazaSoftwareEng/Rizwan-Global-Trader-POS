@@ -4,7 +4,8 @@ const A4_WIDTH = 794 // px at 96 dpi; documents inside are rendered at this widt
 
 // Shows an A4-width document scaled down to fit its container (never scaled up).
 // crop = the container's height comes from CSS (thumbnails); otherwise it matches the scaled page.
-export default function ScaledPaper({ children, crop = false, className = '' }) {
+// fitViewport = also shrink so the whole page fits the window height (stays fully visible while sticky).
+export default function ScaledPaper({ children, crop = false, fitViewport = false, className = '' }) {
   const boxRef = useRef(null)
   const pageRef = useRef(null)
   const [fit, setFit] = useState({ scale: 0, left: 0, height: 0 })
@@ -13,15 +14,20 @@ export default function ScaledPaper({ children, crop = false, className = '' }) 
     const box = boxRef.current
     const page = pageRef.current
     const measure = () => {
-      const scale = Math.min(1, box.clientWidth / A4_WIDTH)
+      let scale = Math.min(1, box.clientWidth / A4_WIDTH)
+      if (fitViewport && page.offsetHeight) scale = Math.min(scale, Math.max(0.3, (window.innerHeight - 130) / page.offsetHeight))
       setFit({ scale, left: (box.clientWidth - A4_WIDTH * scale) / 2, height: page.offsetHeight * scale })
     }
     measure()
     const ro = new ResizeObserver(measure)
     ro.observe(box)
     ro.observe(page)
-    return () => ro.disconnect()
-  }, [])
+    window.addEventListener('resize', measure)
+    return () => {
+      ro.disconnect()
+      window.removeEventListener('resize', measure)
+    }
+  }, [fitViewport])
 
   return (
     <div ref={boxRef} className={`scaled ${className}`} style={crop ? undefined : { height: fit.height }}>
